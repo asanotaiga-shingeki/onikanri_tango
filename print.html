@@ -208,7 +208,7 @@
                 // 指定数にカット
                 const questions = items.slice(0, num);
                 
-                renderPrintArea(questions, mode, showQ, showA, bookId);
+                renderPrintArea(questions, mode, showQ, showA, bookId,start,end);
                 
                 // プレビューを表示
                 document.getElementById('print-area').style.display = 'block';
@@ -220,7 +220,7 @@
         }
 
         // HTML生成
-        function renderPrintArea(questions, mode, showQ, showA, title) {
+        function renderPrintArea(questions, mode, showQ, showA, title, start, end) {
             const container = document.getElementById('print-area');
             container.innerHTML = '';
 
@@ -236,10 +236,10 @@
                     <div class="test-header">
                         <div>
                             <div class="test-title">${bookName} 小テスト</div>
-                            <div>実施日: ${date} / 範囲: No.${questions[0]?.n || ''} - ${questions[questions.length-1]?.n || ''}</div>
+                            <div>実施日: ${date} / 範囲: No.${start || ''} - ${end || ''}</div>
                         </div>
                         <div class="test-info">
-                            年　　組　　番　名前：<u>　　　　　　　　　　　　　</u>
+                            年　　名前：<u>　　　　　　　　　　　　　</u>
                             <div class="score-box"><span class="score-label">点数</span></div>
                         </div>
                     </div>
