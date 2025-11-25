@@ -33,10 +33,7 @@
             white-space: pre-wrap;
             word-break: break-word;
         }
-        /* 文字数が多い場合の調整 */
         .long-text { font-size: 1.8rem !important; text-align: left; width: 100%; }
-        
-        /* タップ領域のガイド（デバッグ用にもなるが、操作感のために透明で配置） */
         .tap-area { position: absolute; width: 50%; height: 100%; top: 0; z-index: 10; }
         .tap-left { left: 0; }
         .tap-right { right: 0; }
@@ -60,37 +57,57 @@
             reverse: params.get("reverse") === 'true'
         };
 
+        let loadedData = null; // 読み込んだ全データを保持
         let questions = [];
         let currentIndex = 0;
         let isBack = false;
 
+        // --- 初期化プロセス ---
         (async () => {
-            questions = await getQuestions(config);
-            if (!questions.length) {
-                document.getElementById("text").textContent = "データがありません";
+            // 1. 最初に全データを一度だけ取得 (通信はここだけ)
+            loadedData = await fetchBookData(config.subject);
+            
+            if (!loadedData) {
+                document.getElementById("text").textContent = "データの読み込みに失敗しました";
+                return;
+            }
+
+            // 2. 問題セットを作成して開始
+            startNewSet();
+        })();
+
+        // 新しい問題セットを生成して開始する関数
+        function startNewSet() {
+            // メモリ上のデータからランダム抽出 (通信なし)
+            questions = generateSet(loadedData, config);
+            
+            currentIndex = 0;
+            isBack = false;
+
+            if (questions.length === 0) {
+                document.getElementById("text").textContent = "表示できる単語がありません";
                 return;
             }
             render();
-        })();
+        }
 
         function render() {
+            // 終了判定
             if (currentIndex >= questions.length) {
-                if (confirm("終了です。もう一度やりますか？")) {
-                    currentIndex = 0;
-                    isBack = false;
-                    // 再シャッフルが必要ならここで実装
+                if (confirm("一周しました。新しいセットで繰り返しますか？")) {
+                    startNewSet(); 
                 } else {
                     location.href = "./index.html";
-                    return;
                 }
+                return;
             }
+
             const q = questions[currentIndex];
             const el = document.getElementById("text");
             const text = isBack ? q.b : q.f;
             
             el.textContent = text;
             
-            // 文字数や科目によるフォントサイズ調整
             if (text.length > 40 || config.subject.includes("History")) {
                 el.classList.add("long-text");
             } else {
@@ -119,8 +136,7 @@
             }
             render();
         }
-
-        // キーボード操作
+                
         document.addEventListener("keydown", e => {
             if (e.code === "ArrowRight" || e.code === "Space") next();
             if (e.code === "ArrowLeft") prev();
