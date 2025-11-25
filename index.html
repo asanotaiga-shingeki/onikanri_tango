@@ -74,7 +74,7 @@
 
         async function initBookList() {
             try {
-                const res = await fetch('./books.json');
+                const res = await fetch('./jsons/books.json');
                 if (!res.ok) throw new Error("books.json not found");
                 const books = await res.json();
                 
