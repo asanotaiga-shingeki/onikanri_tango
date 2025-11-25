@@ -4,7 +4,7 @@
  */
 async function getQuestions({ subject, start, end, num, reverse }) {
     try {
-        const res = await fetch(`./${subject}.json`);
+        const res = await fetch(`./jsons/${subject}.json`);
         if (!res.ok) throw new Error("Load failed");
         const data = await res.json();
 
