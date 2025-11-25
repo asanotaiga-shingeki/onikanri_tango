@@ -147,7 +147,7 @@
         // books.jsonを読み込んでセレクトボックスを作る
         async function loadBooks() {
             try {
-                const res = await fetch('./books.json');
+                const res = await fetch('./jsons/books.json');
                 const books = await res.json();
                 const select = document.getElementById('book-select');
                 
@@ -185,7 +185,7 @@
             const showA = document.getElementById('show-answer').checked;
 
             try {
-                const res = await fetch(`./${bookId}.json`);
+                const res = await fetch(`./jsons/${bookId}.json`);
                 const data = await res.json();
 
                 // 範囲フィルタ
