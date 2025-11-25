@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Flashcard</title>
+    <link rel="manifest" href="./manifest.json">
+    <style>
+        :root { --primary: #4a69bd; --bg: #f8f9fa; --text: #333; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .container { width: 100%; max-width: 600px; background: #fff; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; }
+        h1 { text-align: center; color: var(--primary); font-size: 1.5rem; }
+        
+        /* リスト生成前もレイアウトが崩れないように */
+        .book-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 10px; margin-bottom: 20px; min-height: 140px; }
+        .book-item { border: 2px solid transparent; border-radius: 8px; overflow: hidden; cursor: pointer; transition: 0.2s; opacity: 0.7; }
+        .book-item.selected { border-color: var(--primary); opacity: 1; transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+        .book-item img { width: 100%; display: block; }
+
+        .settings { display: grid; gap: 15px; background: #f1f3f5; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .setting-row { display: flex; justify-content: space-between; align-items: center; }
+        .setting-row label { font-weight: bold; font-size: 0.9rem; }
+        input[type="number"] { width: 70px; padding: 5px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
+
+        .btn { display: block; width: 100%; padding: 12px; background: var(--primary); color: #fff; text-align: center; text-decoration: none; border-radius: 25px; font-weight: bold; letter-spacing: 1px; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        /* Toggle Switch */
+        .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary); }
+        input:checked + .slider:before { transform: translateX(16px); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="book-title">読込中...</h1>
+        
+        <div class="book-list" id="book-list-container"></div>
+
+        <div class="settings">
+            <div class="setting-row">
+                <label>範囲</label>
+                <div>
+                    <input type="number" id="start" value="1" min="1"> ～ 
+                    <input type="number" id="end" value="100">
+                </div>
+            </div>
+            <div class="setting-row">
+                <label>出題数</label>
+                <input type="number" id="num" value="10" min="1">
+            </div>
+            <div class="setting-row">
+                <label>裏表逆 (Reverse)</label>
+                <label class="switch">
+                    <input type="checkbox" id="reverse">
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <a href="#" id="start-btn" class="btn">START</a>
+    </div>
+
+    <script>
+        const state = { subject: '', start: 1, end: 100, num: 10, reverse: false };
+        
+        function updateLink() {
+            const qs = new URLSearchParams(state).toString();
+            document.getElementById('start-btn').href = `./flash.html?${qs}`;
+        }
+
+        async function initBookList() {
+            try {
+                const res = await fetch('./books.json');
+                if (!res.ok) throw new Error("books.json not found");
+                const books = await res.json();
+                
+                const container = document.getElementById('book-list-container');
+                container.innerHTML = ''; // クリア
+
+                books.forEach((book, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'book-item';
+                    // 最初の要素をデフォルト選択
+                    if (index === 0) {
+                        div.classList.add('selected');
+                        // 初期状態のセット
+                        state.subject = book.id;
+                        state.end = book.max;
+                        document.getElementById('book-title').textContent = book.title;
+                        document.getElementById('end').value = state.end;
+                        updateLink();
+                    }
+
+                    // 画像生成
+                    const img = document.createElement('img');
+                    img.src = book.image;
+                    img.alt = book.title;
+                    div.appendChild(img);
+
+                    // クリックイベント
+                    div.addEventListener('click', () => {
+                        // 選択状態の切り替え
+                        document.querySelectorAll('.book-item').forEach(el => el.classList.remove('selected'));
+                        div.classList.add('selected');
+
+                        // 状態更新
+                        state.subject = book.id;
+                        state.end = book.max; // 選択時に終了範囲を最大値にリセット
+                        
+                        // UI更新
+                        document.getElementById('book-title').textContent = book.title;
+                        document.getElementById('end').value = state.end;
+                        updateLink();
+                    });
+
+                    container.appendChild(div);
+                });
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById('book-title').textContent = "読込エラー";
+            }
+        }
+
+        // 設定項目のイベントリスナー
+        ['start', 'end', 'num'].forEach(id => {
+            document.getElementById(id).addEventListener('change', e => {
+                state[id] = e.target.value;
+                updateLink();
+            });
+        });
+
+        document.getElementById('reverse').addEventListener('change', e => {
+            state.reverse = e.target.checked;
+            updateLink();
+        });
+
+        // 実行
+        initBookList();
+    </script>
+</body>
+</html>
