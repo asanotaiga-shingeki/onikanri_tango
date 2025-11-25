@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flash Card</title>
+    <style>
+        body {
+            background-color: #3a8360;
+            color: white;
+            height: 100vh;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+        #card-container {
+            width: 90%;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+        #text {
+            font-size: 3rem;
+            font-weight: bold;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        /* 文字数が多い場合の調整 */
+        .long-text { font-size: 1.8rem !important; text-align: left; width: 100%; }
+        
+        /* タップ領域のガイド（デバッグ用にもなるが、操作感のために透明で配置） */
+        .tap-area { position: absolute; width: 50%; height: 100%; top: 0; z-index: 10; }
+        .tap-left { left: 0; }
+        .tap-right { right: 0; }
+    </style>
+</head>
+<body>
+    <div id="card-container">
+        <div id="text">Loading...</div>
+        <div class="tap-area tap-left" onclick="prev()"></div>
+        <div class="tap-area tap-right" onclick="next()"></div>
+    </div>
+
+    <script src="./main.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const config = {
+            subject: params.get("subject") || 'leap',
+            start: parseInt(params.get("start") || 1),
+            end: parseInt(params.get("end") || 9999),
+            num: parseInt(params.get("num") || 10),
+            reverse: params.get("reverse") === 'true'
+        };
+
+        let questions = [];
+        let currentIndex = 0;
+        let isBack = false;
+
+        (async () => {
+            questions = await getQuestions(config);
+            if (!questions.length) {
+                document.getElementById("text").textContent = "データがありません";
+                return;
+            }
+            render();
+        })();
+
+        function render() {
+            if (currentIndex >= questions.length) {
+                if (confirm("終了です。もう一度やりますか？")) {
+                    currentIndex = 0;
+                    isBack = false;
+                    // 再シャッフルが必要ならここで実装
+                } else {
+                    location.href = "./index.html";
+                    return;
+                }
+            }
+            const q = questions[currentIndex];
+            const el = document.getElementById("text");
+            const text = isBack ? q.b : q.f;
+            
+            el.textContent = text;
+            
+            // 文字数や科目によるフォントサイズ調整
+            if (text.length > 40 || config.subject.includes("History")) {
+                el.classList.add("long-text");
+            } else {
+                el.classList.remove("long-text");
+            }
+        }
+
+        function next() {
+            if (!isBack) isBack = true;
+            else {
+                isBack = false;
+                currentIndex++;
+            }
+            render();
+        }
+
+        function prev() {
+            if (isBack) isBack = false;
+            else {
+                if (currentIndex > 0) {
+                    currentIndex--;
+                    isBack = true;
+                } else {
+                    if(confirm("トップに戻りますか？")) location.href = "./index.html";
+                }
+            }
+            render();
+        }
+
+        // キーボード操作
+        document.addEventListener("keydown", e => {
+            if (e.code === "ArrowRight" || e.code === "Space") next();
+            if (e.code === "ArrowLeft") prev();
+        });
+    </script>
+</body>
+</html>
