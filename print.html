@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小テスト作成 - Flashcard App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 画面表示用のスタイル (印刷時には適用されない部分もあり) --- */
+        :root { --primary: #4a69bd; --bg: #f8f9fa; --text: #333; }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        /* 設定エリア（印刷時は非表示） */
+        .control-panel {
+            background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+        .control-title { font-size: 1.2rem; font-weight: bold; color: var(--primary); margin-bottom: 15px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        .form-group { margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 15px; align-items: center; }
+        label { font-weight: bold; font-size: 0.9rem; margin-right: 5px; }
+        select, input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+        input[type="number"] { width: 70px; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: 20px; }
+        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; color: white; transition: 0.2s; text-decoration: none; display: inline-block; }
+        .btn-primary { background-color: var(--primary); }
+        .btn-secondary { background-color: #6c757d; }
+        .btn-print { background-color: #28a745; }
+        .btn:hover { opacity: 0.9; }
+
+        /* --- 印刷プレビューエリア --- */
+        #print-area {
+            background: white;
+            width: 210mm; /* A4 width */
+            min-height: 297mm; /* A4 height */
+            margin: 0 auto;
+            padding: 20mm;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: none; /* 初期状態は非表示 */
+            font-family: 'Noto Serif JP', serif; /* 明朝体でテストっぽく */
+            color: #000;
+        }
+
+        /* テスト用紙のデザイン */
+        .test-header {
+            display: flex; justify-content: space-between; align-items: end;
+            border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px;
+        }
+        .test-title { font-size: 24px; font-weight: bold; }
+        .test-info { font-size: 14px; text-align: right; }
+        .score-box { border: 1px solid #000; width: 100px; height: 40px; margin-left: 10px; display: inline-block; vertical-align: bottom; position: relative;}
+        .score-label { position: absolute; top: 2px; left: 2px; font-size: 10px; }
+
+        .question-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* 2列表示 */
+            column-gap: 40px;
+            row-gap: 15px;
+        }
+        .question-item {
+            display: flex; align-items: baseline; border-bottom: 1px dotted #ccc; padding-bottom: 5px;
+            break-inside: avoid; /* 途中で改ページさせない */
+        }
+        .q-num { width: 30px; font-weight: bold; }
+        .q-text { flex: 1; }
+        .q-line { 
+            width: 100px; border-bottom: 1px solid #000; margin-left: 10px; 
+            text-align: center; font-size: 0.9em; color: #333;
+        }
+
+        /* 解答編のデザイン */
+        .answer-sheet { margin-top: 0; }
+        
+        /* --- 印刷時のスタイル設定 (重要) --- */
+        @media print {
+            body { background: none; padding: 0; }
+            .control-panel { display: none !important; }
+            .container { width: 100%; max-width: none; margin: 0; }
+            #print-area { 
+                display: block !important; 
+                width: 100%; box-shadow: none; padding: 0; margin: 0; 
+            }
+            
+            /* 改ページ設定 */
+            .page-break { page-break-before: always; }
+            
+            /* ブラウザのヘッダーフッターを消す設定(Chrome等) */
+            @page { margin: 15mm; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="control-panel">
+            <div class="control-title">小テスト作成設定</div>
+            
+            <div class="form-group">
+                <label>単語帳:</label>
+                <select id="book-select"></select>
+            </div>
+
+            <div class="form-group">
+                <label>範囲:</label>
+                <input type="number" id="range-start" value="1" min="1">
+                <span>〜</span>
+                <input type="number" id="range-end" value="100">
+            </div>
+
+            <div class="form-group">
+                <label>問題数:</label>
+                <input type="number" id="q-count" value="20">
+            </div>
+
+            <div class="form-group">
+                <label>出題形式:</label>
+                <select id="test-mode">
+                    <option value="en-jp">英語 → 日本語</option>
+                    <option value="jp-en">日本語 → 英語</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>表示:</label>
+                <label><input type="checkbox" id="show-question" checked> 問題</label>
+                <label><input type="checkbox" id="show-answer" checked> 解答</label>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="generateTest()">プレビュー作成</button>
+                <button class="btn btn-print" onclick="window.print()">PDF保存 / 印刷</button>
+                <a href="index.html" class="btn btn-secondary">戻る</a>
+            </div>
+            <p style="font-size:0.8rem; color:#666; margin-top:10px;">
+                ※「PDF保存/印刷」を押し、送信先を「PDFに保存」に設定してください。<br>
+                ※問題と解答を別ファイルにしたい場合は、「表示」のチェックを切り替えて2回保存してください。
+            </p>
+        </div>
+
+        <div id="print-area"></div>
+    </div>
+
+    <script>
+        // books.jsonを読み込んでセレクトボックスを作る
+        async function loadBooks() {
+            try {
+                const res = await fetch('./books.json');
+                const books = await res.json();
+                const select = document.getElementById('book-select');
+                
+                books.forEach(book => {
+                    const option = document.createElement('option');
+                    option.value = book.id;
+                    option.textContent = book.title;
+                    option.dataset.max = book.max;
+                    select.appendChild(option);
+                });
+
+                // 初期範囲設定
+                select.addEventListener('change', () => {
+                    const max = select.options[select.selectedIndex].dataset.max;
+                    document.getElementById('range-end').value = max;
+                });
+                // 最初の項目のmaxをセット
+                if(books.length > 0) {
+                    document.getElementById('range-end').value = books[0].max;
+                }
+
+            } catch (e) {
+                alert('books.jsonの読み込みに失敗しました');
+            }
+        }
+
+        // テスト生成処理
+        async function generateTest() {
+            const bookId = document.getElementById('book-select').value;
+            const start = parseInt(document.getElementById('range-start').value);
+            const end = parseInt(document.getElementById('range-end').value);
+            const num = parseInt(document.getElementById('q-count').value);
+            const mode = document.getElementById('test-mode').value;
+            const showQ = document.getElementById('show-question').checked;
+            const showA = document.getElementById('show-answer').checked;
+
+            try {
+                const res = await fetch(`./${bookId}.json`);
+                const data = await res.json();
+
+                // 範囲フィルタ
+                let items = data.filter(item => {
+                    // IDの取得（軽量化対応：n > number > numberText）
+                    const id = item.n !== undefined ? item.n : (item.number !== undefined ? item.number : item.nt);
+                    
+                    if (typeof id === 'number') {
+                        return id >= start && id <= end;
+                    }
+                    return true; // 文字列IDの場合はとりあえず含める
+                });
+
+                // シャッフル
+                for (let i = items.length - 1; i > 0; i--) {
+                    const r = Math.floor(Math.random() * (i + 1));
+                    [items[i], items[r]] = [items[r], items[i]];
+                }
+
+                // 指定数にカット
+                const questions = items.slice(0, num);
+                
+                renderPrintArea(questions, mode, showQ, showA, bookId);
+                
+                // プレビューを表示
+                document.getElementById('print-area').style.display = 'block';
+
+            } catch (e) {
+                console.error(e);
+                alert('問題データの取得に失敗しました');
+            }
+        }
+
+        // HTML生成
+        function renderPrintArea(questions, mode, showQ, showA, title) {
+            const container = document.getElementById('print-area');
+            container.innerHTML = '';
+
+            const bookName = document.getElementById('book-select').options[document.getElementById('book-select').selectedIndex].text;
+            const date = new Date().toLocaleDateString();
+
+            // --- 問題用紙 ---
+            if (showQ) {
+                const qSection = document.createElement('div');
+                qSection.className = 'test-sheet';
+                
+                qSection.innerHTML = `
+                    <div class="test-header">
+                        <div>
+                            <div class="test-title">${bookName} 小テスト</div>
+                            <div>実施日: ${date} / 範囲: No.${questions[0]?.n || ''} - ${questions[questions.length-1]?.n || ''}</div>
+                        </div>
+                        <div class="test-info">
+                            年　　組　　番　名前：<u>　　　　　　　　　　　　　</u>
+                            <div class="score-box"><span class="score-label">点数</span></div>
+                        </div>
+                    </div>
+                    <div class="question-list">
+                        ${questions.map((q, i) => {
+                            // 軽量化対応 (f/b or frontText/backText)
+                            const text = mode === 'en-jp' ? (q.f || q.frontText) : (q.b || q.backText);
+                            return `
+                                <div class="question-item">
+                                    <span class="q-num">(${i + 1})</span>
+                                    <span class="q-text">${text}</span>
+                                    <span class="q-line"></span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+                container.appendChild(qSection);
+            }
+
+            // --- 解答用紙 (改ページ後に表示) ---
+            if (showA) {
+                const aSection = document.createElement('div');
+                if (showQ) aSection.className = 'page-break answer-sheet'; // 問題があれば改ページ
+                
+                aSection.innerHTML = `
+                    <div class="test-header">
+                        <div class="test-title">【解答】 ${bookName} 小テスト</div>
+                        <div class="test-info">実施日: ${date}</div>
+                    </div>
+                    <div class="question-list">
+                        ${questions.map((q, i) => {
+                            const answer = mode === 'en-jp' ? (q.b || q.backText) : (q.f || q.frontText);
+                            const problem = mode === 'en-jp' ? (q.f || q.frontText) : (q.b || q.backText);
+                            return `
+                                <div class="question-item">
+                                    <span class="q-num">(${i + 1})</span>
+                                    <span class="q-text" style="font-size:0.8em; color:#666;">[問: ${problem}]</span>
+                                    <div style="font-weight:bold; margin-left:10px;">${answer}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+                container.appendChild(aSection);
+            }
+        }
+
+        // 初期化
+        loadBooks();
+    </script>
+</body>
+</html>
