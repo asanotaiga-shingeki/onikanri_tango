@@ -15,7 +15,8 @@
             align-items: center;
             font-family: sans-serif;
             overflow: hidden;
-            user-select: none;
+            user-select: none; /* テキスト選択防止 */
+            touch-action: none; /* ブラウザのデフォルトのタッチアクションを無効化 */
         }
         #card-container {
             width: 90%;
@@ -34,7 +35,8 @@
             word-break: break-word;
         }
         .long-text { font-size: 1.8rem !important; text-align: left; width: 100%; }
-        .tap-area { position: absolute; width: 50%; height: 100%; top: 0; z-index: 10; }
+        /* PCクリック用エリア */
+        .tap-area { position: absolute; width: 50%; height: 100%; top: 0; z-index: 10; cursor: pointer; }
         .tap-left { left: 0; }
         .tap-right { right: 0; }
     </style>
@@ -57,30 +59,22 @@
             reverse: params.get("reverse") === 'true'
         };
 
-        let loadedData = null; // 読み込んだ全データを保持
+        let loadedData = null;
         let questions = [];
         let currentIndex = 0;
         let isBack = false;
 
-        // --- 初期化プロセス ---
         (async () => {
-            // 1. 最初に全データを一度だけ取得 (通信はここだけ)
             loadedData = await fetchBookData(config.subject);
-            
             if (!loadedData) {
                 document.getElementById("text").textContent = "データの読み込みに失敗しました";
                 return;
             }
-
-            // 2. 問題セットを作成して開始
             startNewSet();
         })();
 
-        // 新しい問題セットを生成して開始する関数
         function startNewSet() {
-            // メモリ上のデータからランダム抽出 (通信なし)
             questions = generateSet(loadedData, config);
-            
             currentIndex = 0;
             isBack = false;
 
@@ -92,7 +86,6 @@
         }
 
         function render() {
-            // 終了判定
             if (currentIndex >= questions.length) {
                 if (confirm("一周しました。新しいセットで繰り返しますか？")) {
                     startNewSet(); 
@@ -136,11 +129,88 @@
             }
             render();
         }
+
+        function archive() {
+            if (currentIndex >= questions.length) return;
+            const q = questions[currentIndex];
+            if (q && q.id) {
+                const key = "ARCHIVE_" + config.subject;
+                let archived = localStorage.getItem(key);
+                archived = archived ? archived.split(",") : [];
+                
+                if (!archived.includes(String(q.id))) {
+                    archived.push(String(q.id));
+                    localStorage.setItem(key, archived.join(","));
+                    
+                    // フィードバック表示
+                    const el = document.getElementById("text");
+                    el.textContent = "Archived!";
+                    // 少し待ってから次へ（視覚的フィードバックのため）
+                    setTimeout(() => {
+                         isBack = false;
+                         currentIndex++;
+                         render();
+                    }, 300);
+                    return;
+                }
+            }
+            // すでにアーカイブ済み等の場合は即次へ
+            isBack = false;
+            currentIndex++;
+            render();
+        }
                 
         document.addEventListener("keydown", e => {
             if (e.code === "ArrowRight" || e.code === "Space") next();
             if (e.code === "ArrowLeft") prev();
+            if (e.code === "ArrowDown") archive();
         });
+
+        // --- スワイプ／フリック判定 ---
+        let startX = 0;
+        let startY = 0;
+        let endX = 0;
+        let endY = 0;
+
+        // スワイプ／フリック
+        document.addEventListener('touchmove', logSwipe, { passive: false });
+
+        // タッチ開始
+        document.addEventListener('touchstart', logSwipeStart, { passive: false });
+
+        // タッチ終了
+        document.addEventListener('touchend', logSwipeEnd, { passive: false });
+
+        function logSwipeStart(event) {
+            event.preventDefault();
+            startX = event.touches[0].pageX;
+            startY = event.touches[0].pageY;
+            // タップ判定用に初期化
+            endX = startX;
+            endY = startY;
+        }
+
+        function logSwipe(event) {
+            event.preventDefault();
+            endX = event.touches[0].pageX;
+            endY = event.touches[0].pageY;
+        }
+
+        function logSwipeEnd(event) {
+            event.preventDefault();
+            // 下方向へのスワイプ（Yの移動量がXの移動量より大きい）
+            if(Math.abs(endX - startX) < endY - startY){
+                archive();
+            } 
+            // 右方向へのスワイプ
+            else if( 0 < (endX - startX) ) {
+                prev();
+            } 
+            // 左方向へのスワイプ、またはタップ
+            else {
+                next();
+            }
+        }
     </script>
 </body>
 </html>
