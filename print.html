@@ -70,10 +70,52 @@
             width: 100px; border-bottom: 1px solid #000; margin-left: 10px; 
             text-align: center; font-size: 0.9em; color: #333;
         }
+        .q-row .q-num{
+          flex: 0 0 auto;          /* width 固定をやめる */
+          min-width: 2.8em;        /* (1) も (20) も同じ位置に揃う */
+          margin-right: .55em;     /* 語との最小間隔。gap より確実 */
+          white-space: nowrap;
+          text-align: right;
+          font-variant-numeric: tabular-nums;
+        }
+        .q-row .q-word{
+          flex: 0 1 auto;
+          min-width: 0;            /* Flex 内で縮めるために必須 */
+        }
 
         /* 解答編のデザイン */
         .answer-sheet { margin-top: 0; }
-        
+        .a-row{
+              display: block;          /* flex を解除。space-between も無効化される */
+              padding-left: 3.2em;
+              text-indent: -3.2em;     /* 番号分のぶら下げインデント */
+              min-height: 0;           /* 固定 height を使っている場合は必ず解除 */
+              height: auto;
+              overflow: visible;       /* clip されていると折り返しが消える */
+              line-height: 1.5;
+              margin-bottom: .5em;
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+        .a-row .a-num{
+              display: inline-block;
+              min-width: 2.8em;
+              text-align: right;
+              margin-right: .4em;
+              text-indent: 0;
+              font-variant-numeric: tabular-nums;
+        }
+        .a-row .a-q{                /* [問: …] の部分 */
+              display: inline;
+              white-space: nowrap;      /* 語の途中で折らない */
+              font-size: .85em;
+              color: #666;
+              margin-right: .6em;
+        }
+        .a-row .a-a{                /* 解答本体 */
+              display: inline;
+              font-weight: 700;
+            }
         /* --- 印刷時のスタイル設定 (重要) --- */
         @media print {
             body { background: none; padding: 0; }
